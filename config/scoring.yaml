@@ -38,7 +38,7 @@ nsfw:
     MALE_GENITALIA_EXPOSED: 1.0
     ANUS_EXPOSED: 1.0
     FEMALE_BREAST_EXPOSED: 0.95
-    BUTTOCKS_EXPOSED: 0.90
+    BUTTOCKS_EXPOSED: 0.95
     # "Yopiq" sinflar: bikini/ichki kiyim. Yakka holda kam, lekin bir nechtasi
     # birga kelsa (yuqoridagi + pastdagi + qorin) — bu spam to'lqinining tipik
     # profil rasmi. Ular birikib ball beradi (combine: noisy_or).
@@ -47,6 +47,16 @@ nsfw:
     BUTTOCKS_COVERED: 0.75
     BELLY_EXPOSED: 0.30
     ARMPITS_EXPOSED: 0.10
+  # Ochiq tana qismlari: model ishonchi past bo'lsa ham (orqadan olingan rasm,
+  # kesilgan kadr) topilganining o'zi yetarli dalil. Ular uchun ball ishonchga
+  # ko'paytirilmaydi, to'liq vazn qo'llanadi.
+  explicit_classes:
+    - FEMALE_GENITALIA_EXPOSED
+    - MALE_GENITALIA_EXPOSED
+    - ANUS_EXPOSED
+    - FEMALE_BREAST_EXPOSED
+    - BUTTOCKS_EXPOSED
+  explicit_min_score: 0.45
   # Bir nechta zaif belgini qanday qo'shish: noisy_or (birikadi) yoki max (faqat eng kuchlisi).
   combine: noisy_or
   # Shu qiymatdan past detektsiyalar tashlab yuboriladi.

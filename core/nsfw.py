@@ -127,6 +127,7 @@ class NudeNetClassifier(_BaseClassifier):
             normalized.unlink(missing_ok=True)
 
         found: list[tuple[str, float]] = []
+        explicit = set(self.config.explicit_classes)
         # Per class, because two detections of the same class (e.g. both
         # breasts) are one piece of evidence, not two.
         per_class: dict[str, float] = {}
@@ -139,7 +140,12 @@ class NudeNetClassifier(_BaseClassifier):
             multiplier = self.config.unsafe_classes.get(label)
             if multiplier is None:
                 continue
-            contribution = min(1.0, raw * multiplier)
+            if label in explicit and raw >= self.config.explicit_min_score:
+                # An exposed private part is the evidence; a 0.51 detection of
+                # it does not make the photo "half explicit".
+                contribution = multiplier
+            else:
+                contribution = min(1.0, raw * multiplier)
             per_class[label] = max(per_class.get(label, 0.0), contribution)
 
         found.sort(key=lambda item: item[1], reverse=True)

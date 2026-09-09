@@ -335,10 +335,16 @@ Rasm bo'yicha kalibrlash (haqiqiy misollarda tekshirilgan):
 
 | Rasm turi | Ball | Qaror |
 |---|---|---|
-| Ochiq pornografik | 0.94 | 🚫 ban |
-| Bikini / ichki kiyim (bir nechta belgi birga) | 0.85–0.88 | 🚫 ban |
+| Ochiq pornografik | 0.95 | 🚫 ban |
+| Ochiq tana qismi (kokrak/dumba) — past ishonch bilan ham | 0.90–0.91 | 🚫 ban |
+| Bikini / ichki kiyim (bir nechta "yopiq" belgi birga) | 0.85–0.88 | 🚫 ban |
 | Yopiq kupalnik, sport liftchak, ochiq yoqa | 0.61–0.74 | 🔎 review |
 | Plyajdagi erkak, yozgi kiyim, oddiy portret | 0.00–0.29 | ✅ toza |
+
+`explicit_classes` ro'yxatidagi sinflar (ochiq kokrak, dumba, jinsiy a'zo, anus)
+uchun model ishonchi ballga ko'paytirilmaydi: orqadan olingan yoki kesilgan
+kadrda NudeNet ko'pincha 0.5 atrofida ishonch beradi, lekin rasm baribir ochiq.
+Ishonch `explicit_min_score` (0.45) dan past bo'lsa — oddiy hisob qo'llanadi.
 
 Qattiqroq yoki yumshoqroq qilish uchun `nsfw.unsafe_classes` dagi "COVERED"
 sinflar vaznini yoki `thresholds.ban` ni o'zgartiring.
@@ -405,7 +411,7 @@ avtomatik ban umuman yo'q (qora ro'yxatdagilar ham faqat xabar qilinadi).
 pytest -q
 ```
 
-63 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
+66 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
 qaror ustuvorligi (oq ro'yxat > qora ro'yxat > ball), observe/enforce siyosati,
 review holat mashinasi, kesh, izoh shablonlari, hisobot va `list` filtrlari, review xabari
 formati va **soxta Bot API** bilan to'liq real-vaqt quvuri (ban / observe /

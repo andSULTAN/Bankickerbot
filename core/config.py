@@ -90,6 +90,11 @@ class NsfwConfig(BaseModel):
     # add up, which is exactly what this spam wave looks like.
     # "max": only the single strongest detection counts.
     combine: str = "noisy_or"
+    # Classes that are explicit by their very nature. For these the detector's
+    # confidence only decides *whether* the body part is there, not how bad it
+    # is - a rear view or a crop often yields ~0.5 for an obvious photo.
+    explicit_classes: list[str] = Field(default_factory=list)
+    explicit_min_score: float = 0.45
 
 
 class BioConfig(BaseModel):

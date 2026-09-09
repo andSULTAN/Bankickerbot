@@ -196,3 +196,37 @@ def test_explicit_photo_still_bans(cfg, monkeypatch, tmp_path):
     ]
     classifier, photo = _classifier_with(explicit, cfg.nsfw, monkeypatch, tmp_path)
     assert classifier.score_image(photo) * cfg.weights["nsfw_photo"] >= cfg.thresholds.ban
+
+
+# A rear-view swimwear photo: the detector only reports the buttocks, and only
+# with ~0.5 confidence, although the photo is unambiguous.
+REAR_VIEW_DETECTIONS = [
+    {"class": "FACE_FEMALE", "score": 0.78},
+    {"class": "ARMPITS_EXPOSED", "score": 0.66},
+    {"class": "BUTTOCKS_EXPOSED", "score": 0.51},
+]
+
+
+def test_exposed_class_counts_by_presence(cfg, monkeypatch, tmp_path):
+    """Scaling by confidence scored this 0.47 (clean) - the class itself is
+    the evidence, the confidence only says whether it is really there."""
+    classifier, photo = _classifier_with(REAR_VIEW_DETECTIONS, cfg.nsfw, monkeypatch, tmp_path)
+
+    photo_score = classifier.score_image(photo) * cfg.weights["nsfw_photo"]
+    assert photo_score >= cfg.thresholds.ban
+
+
+def test_single_explicit_detection_is_enough(cfg, monkeypatch, tmp_path):
+    detections = [{"class": "FEMALE_BREAST_EXPOSED", "score": 0.47}]
+    classifier, photo = _classifier_with(detections, cfg.nsfw, monkeypatch, tmp_path)
+    assert classifier.score_image(photo) * cfg.weights["nsfw_photo"] >= cfg.thresholds.ban
+
+
+def test_explicit_below_the_confidence_floor_falls_back_to_scaling(cfg, monkeypatch, tmp_path):
+    """Under `explicit_min_score` the detection is treated as unreliable."""
+    detections = [
+        {"class": "BUTTOCKS_EXPOSED", "score": 0.40},
+        {"class": "FACE_FEMALE", "score": 0.90},
+    ]
+    classifier, photo = _classifier_with(detections, cfg.nsfw, monkeypatch, tmp_path)
+    assert classifier.score_image(photo) * cfg.weights["nsfw_photo"] < cfg.thresholds.review
