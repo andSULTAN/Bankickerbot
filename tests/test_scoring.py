@@ -97,3 +97,16 @@ def test_admin_ids_accepts_plain_and_empty_values():
     assert Settings(admin_ids="111 222").admin_ids == [111, 222]
     assert Settings(admin_ids="").admin_ids == []
     assert Settings(admin_ids=[7]).is_admin(7)
+
+
+def test_chat_id_conversion_between_telethon_and_bot_api():
+    """The DB stores the Bot API form, Telethon hands us the bare id."""
+    from core.ids import to_bot_api_id, to_telethon_id
+
+    assert to_bot_api_id(1234567890) == -1001234567890
+    assert to_telethon_id(-1001234567890) == 1234567890
+    # Already-converted values must pass through unchanged (idempotent).
+    assert to_bot_api_id(-1001234567890) == -1001234567890
+    assert to_telethon_id(1234567890) == 1234567890
+    # Legacy basic group.
+    assert to_telethon_id(-123456789) == 123456789

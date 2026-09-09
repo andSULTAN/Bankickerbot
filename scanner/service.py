@@ -25,6 +25,7 @@ from core.enums import (
     ScoreVerdict,
     Verdict,
 )
+from core.ids import to_bot_api_id
 from core.logging import get_logger
 from core.nsfw import NsfwClassifier
 from core.review import publish_review
@@ -114,12 +115,14 @@ class ScannerService:
                 group_members = getattr(group_full.full_chat, "participants_count", 0) or 0
             except Exception as exc:  # linked chat may be inaccessible
                 log.warning("linked_group_unavailable", linked_id=linked_id, error=str(exc))
+        # Store the Bot API form so scanner rows and bot rows agree.
+        group_id = to_bot_api_id(group.id) if group is not None else None
         return Targets(
             channel=entity,
-            channel_id=entity.id,
+            channel_id=to_bot_api_id(entity.id),
             channel_title=getattr(entity, "title", str(entity.id)),
             group=group,
-            group_id=getattr(group, "id", None),
+            group_id=group_id,
             channel_members=getattr(full.full_chat, "participants_count", 0) or 0,
             group_members=group_members,
         )
@@ -429,6 +432,33 @@ class ScannerService:
                 note="tgguard unban",
             )
         return {"user_id": user_id, "ok": error is None, "error": error}
+
+    async def list_chats(self, *, query: str | None = None) -> list[dict]:
+        """Channels and groups the service account is a member of, with the
+        `-100...` ids that go into `.env`."""
+        from telethon.tl.types import Channel as TLChannel
+
+        needle = (query or "").lower()
+        chats: list[dict] = []
+        async for dialog in self.client.iter_dialogs():
+            entity = dialog.entity
+            if not isinstance(entity, TLChannel):
+                continue
+            title = getattr(entity, "title", "") or ""
+            username = getattr(entity, "username", None)
+            if needle and needle not in title.lower() and needle not in (username or "").lower():
+                continue
+            chats.append(
+                {
+                    "id": to_bot_api_id(entity.id),
+                    "title": title,
+                    "username": username,
+                    "kind": "guruh" if getattr(entity, "megagroup", False) else "kanal",
+                    "admin": bool(getattr(entity, "creator", False) or entity.admin_rights),
+                    "members": getattr(entity, "participants_count", None),
+                }
+            )
+        return chats
 
     async def whoami(self) -> str:
         me = await flood_safe(self.client.get_me, what="get_me")

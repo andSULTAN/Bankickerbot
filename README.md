@@ -76,8 +76,27 @@ tgguard whoami
 
 ### 2.4 Kanal va guruh id lari
 
-`.env` da `CHANNEL_ID` va `DISCUSSION_GROUP_ID` ni to'ldiring (ikkalasi ham
-`-100...` bilan boshlanadi). Bot faqat shu chatlarda ishlaydi.
+`.env` da `CHANNEL_ID`, `DISCUSSION_GROUP_ID` va `REVIEW_CHANNEL_ID` ni
+to'ldiring (uchalasi ham `-100...` bilan boshlanadi). Bot faqat shu chatlarda
+ishlaydi.
+
+Id larni olishning eng oson yo'li — skaner akkaunti ulangandan keyin:
+
+```bash
+tgguard chats
+```
+
+U akkaunt a'zo bo'lgan barcha kanal/guruhlarni nomi, username va **to'g'ridan-
+to'g'ri `.env` ga qo'yiladigan `-100...` id si** bilan chiqaradi.
+
+Muqobil: kanaldagi biror postni [@getmyid_bot](https://t.me/getmyid_bot) ga
+forward qiling, yoki kanalni Telegram Web'da oching — manzil satrida
+`web.telegram.org/a/#-1001234567890` ko'rinishida turadi.
+
+> Telethon kanalni `1234567890` deb ko'rsatadi, Telegram ilovalari va Bot API
+> esa `-1001234567890` deb. Baza har doim **Bot API shaklini** saqlaydi
+> (`core/ids.py`), shuning uchun skaner va bot yozuvlari bir xil chatga tegishli
+> bo'ladi.
 
 ---
 
@@ -144,6 +163,7 @@ ni shu natijaga qarab sozlang.
 
 ```bash
 tgguard whoami                       # sessiya qaysi akkaunt ekanini ko'rsatadi
+tgguard chats                        # kanal/guruhlar va ularning -100... id lari
 tgguard scan --channel @mychannel    # kanal + muhokama guruhi a'zolarini tekshirish
 tgguard scan --limit 200             # sinov uchun faqat 200 ta
 tgguard scan --force                 # keshni e'tiborsiz qoldirib qayta tekshirish
@@ -352,7 +372,7 @@ avtomatik ban umuman yo'q (qora ro'yxatdagilar ham faqat xabar qilinadi).
 pytest -q
 ```
 
-45 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
+46 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
 qaror ustuvorligi (oq ro'yxat > qora ro'yxat > ball), observe/enforce siyosati,
 review holat mashinasi, kesh, izoh shablonlari, hisobot va `list` filtrlari, review xabari
 formati va **soxta Bot API** bilan to'liq real-vaqt quvuri (ban / observe /

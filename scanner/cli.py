@@ -106,6 +106,44 @@ def whoami() -> None:
 
 
 @app.command()
+def chats(
+    query: str | None = typer.Argument(None, help="Nom bo'yicha filtr (ixtiyoriy)"),
+) -> None:
+    """Akkaunt a'zo bo'lgan kanal/guruhlar va ularning `.env` uchun id lari."""
+
+    async def _run() -> None:
+        async with _Context(need_bot=False) as service:
+            rows = await service.list_chats(query=query)
+            if not rows:
+                console.print("[yellow]Hech narsa topilmadi.[/]")
+                return
+            table = Table(title="Kanal va guruhlar")
+            table.add_column("ID (.env uchun)", no_wrap=True)
+            table.add_column("Turi", no_wrap=True)
+            table.add_column("Nomi")
+            table.add_column("Username")
+            table.add_column("A'zolar", justify="right")
+            table.add_column("Admin?", no_wrap=True)
+            for row in rows:
+                table.add_row(
+                    str(row["id"]),
+                    row["kind"],
+                    (row["title"] or "-")[:32],
+                    f"@{row['username']}" if row["username"] else "-",
+                    str(row["members"]) if row["members"] else "-",
+                    "ha" if row["admin"] else "yo'q",
+                )
+            console.print(table)
+            console.print(
+                "Kanal -> [bold]CHANNEL_ID[/], muhokama guruhi -> "
+                "[bold]DISCUSSION_GROUP_ID[/], yopiq review kanal -> "
+                "[bold]REVIEW_CHANNEL_ID[/]"
+            )
+
+    asyncio.run(_run())
+
+
+@app.command()
 def scan(
     channel: str | None = typer.Option(None, "--channel", "-c", help="Kanal id yoki @username"),
     limit: int | None = typer.Option(None, help="Faqat N ta foydalanuvchini tekshirish"),
