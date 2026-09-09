@@ -7,13 +7,38 @@ inject a stub and CI never has to download the model.
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path
 from typing import Protocol, runtime_checkable
+
+from PIL import Image, UnidentifiedImageError
 
 from core.config import NsfwConfig
 from core.logging import get_logger
 
 log = get_logger(__name__)
+
+# NudeNet reads images through OpenCV, which silently returns None for anything
+# it cannot decode (animated avatars, truncated downloads, unusual JPEG
+# flavours) and then crashes with "NoneType has no attribute shape". Pillow is
+# far more tolerant, so every image is re-encoded to a plain RGB JPEG first.
+MAX_SIDE = 1024
+
+
+def normalize_image(path: str | Path) -> Path | None:
+    """Re-encode to a plain RGB JPEG. Returns None if this is not an image."""
+    try:
+        with Image.open(path) as image:
+            image.load()
+            rgb = image.convert("RGB")
+            rgb.thumbnail((MAX_SIDE, MAX_SIDE))
+            handle, target = tempfile.mkstemp(prefix="tgguard_img_", suffix=".jpg")
+            os.close(handle)
+            rgb.save(target, format="JPEG", quality=90)
+            return Path(target)
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        log.debug("image_unreadable", path=str(path), error=str(exc))
+        return None
 
 
 @runtime_checkable
@@ -64,7 +89,14 @@ class NudeNetClassifier(_BaseClassifier):
         return self._detector
 
     def score_image(self, path: str | Path) -> float:
-        detections = self._get_detector().detect(str(path))
+        normalized = normalize_image(path)
+        if normalized is None:
+            # Not a decodable image (e.g. a video avatar): no photo signal.
+            return 0.0
+        try:
+            detections = self._get_detector().detect(str(normalized))
+        finally:
+            normalized.unlink(missing_ok=True)
         best = 0.0
         for detection in detections or []:
             label = detection.get("class") or detection.get("label") or ""
