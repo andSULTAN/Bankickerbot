@@ -99,6 +99,14 @@ python -m venv .venv
 copy .env.example .env
 ```
 
+`.env` ni to'ldirish uchun uni Notepad'da oching (`notepad .env`) yoki
+terminaldan chiqmasdan quyidagi skriptni ishlating — u har bir qiymatni
+navbat bilan so'raydi va faqat kerakli qatorlarni yangilaydi:
+
+```powershell
+.\scripts\set-env.ps1
+```
+
 Baza migratsiyalari:
 
 ```powershell
