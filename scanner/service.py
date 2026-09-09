@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import shutil
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -137,6 +138,7 @@ class ScannerService:
         force: bool = False,
         push_review: bool = True,
         profile_delay: float = 0.35,
+        save_photos: Path | None = None,
         progress_cb: Callable[[ScanStats, str], None] | None = None,
         on_start: Callable[[Targets], None] | None = None,
     ) -> ScanStats:
@@ -190,6 +192,7 @@ class ScannerService:
                         force=force,
                         push_review=push_review,
                         workdir=workdir,
+                        save_photos=save_photos,
                     )
                 except Exception as exc:
                     stats.errors += 1
@@ -230,6 +233,7 @@ class ScannerService:
         force: bool,
         push_review: bool,
         workdir: Path,
+        save_photos: Path | None = None,
     ) -> None:
         async with self.db.session() as session:
             repo = Repository(session)
@@ -252,6 +256,14 @@ class ScannerService:
             self.client, tl_user, self.cfg, self.classifier, workdir=workdir
         )
         profile: UserProfile = scanned.profile
+
+        if save_photos is not None and scanned.photo_path is not None:
+            # Opt-in only (`--save-photos`): a labelled set for calibration.
+            save_photos.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(
+                scanned.photo_path,
+                save_photos / f"{scanned.result.score:.2f}_{profile.telegram_id}.jpg",
+            )
 
         async with self.db.session() as session:
             repo = Repository(session)

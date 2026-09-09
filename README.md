@@ -155,6 +155,43 @@ Har bir rasm uchun NSFW ehtimoli va shu rasm yagona signal bo'lgandagi ball
 chiqadi. `config/scoring.yaml` dagi `nsfw.unsafe_classes` va `weights.nsfw_photo`
 ni shu natijaga qarab sozlang.
 
+### Chegarani namunalar asosida tanlash (`scripts/calibrate.py`)
+
+Bitta-bitta rasm sinash o'rniga, chegarani **o'lchab** tanlang:
+
+```bash
+# 1) Namunalarni yig'ish (rasmlar shu papkaga saqlanadi)
+tgguard scan --limit 500 --save-photos samples/all
+
+# 2) samples/all ni ko'z bilan ikkiga ajrating: samples/spam va samples/real
+
+# 3) Chegarani hisoblash
+python scripts/calibrate.py --spam samples/spam --real samples/real
+```
+
+Skript har bir chegara uchun **nechta spam tutilishini** va **nechta haqiqiy
+obunachi xato ban bo'lishini** ko'rsatadi, so'ng haqiqiy obunachilarga
+tegmaydigan eng past chegarani tavsiya qiladi:
+
+```
+ chegara   tutildi  qochdi  xato ban   xato %
+    0.75         4       2         0       0%
+    0.70         5       1         1      16%
+
+Tavsiya:
+  thresholds.ban: 0.75   (spamning 67% i tutiladi, haqiqiy obunachilardan hech kim tegmaydi)
+```
+
+50–100 tadan namuna yetarli. **Ochiq (public) NSFW datasetlar bu ish uchun
+kerak emas** — ular boshqa taqsimotdagi rasmlar, sizning kanalingiz
+obunachilarining avatarlarini tavsiflamaydi. Bundan tashqari, NudeNet ning
+o'quv to'plamida noqonuniy material topilgani ma'lum qilingan, LSPD esa faqat
+akademik so'rov bilan beriladi — shuning uchun ularni yuklab olish tavsiya
+etilmaydi.
+
+> ⚠️ `--save-photos` — maxfiylik qoidasidan ataylab qilingan istisno (odatda
+> rasmlar diskda saqlanmaydi). Kalibrlash tugagach papkani o'chirib tashlang.
+
 ---
 
 ## 5. Skaner (lokal CLI)
@@ -411,7 +448,7 @@ avtomatik ban umuman yo'q (qora ro'yxatdagilar ham faqat xabar qilinadi).
 pytest -q
 ```
 
-66 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
+69 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
 qaror ustuvorligi (oq ro'yxat > qora ro'yxat > ball), observe/enforce siyosati,
 review holat mashinasi, kesh, izoh shablonlari, hisobot va `list` filtrlari, review xabari
 formati va **soxta Bot API** bilan to'liq real-vaqt quvuri (ban / observe /

@@ -192,6 +192,11 @@ def scan(
         False, "--no-notify", help="Yakuniy xulosani Telegram'ga yubormaslik"
     ),
     delay: float = typer.Option(0.35, help="Profil so'rovlari orasidagi pauza (soniya)"),
+    save_photos: Path | None = typer.Option(
+        None,
+        "--save-photos",
+        help="Profil rasmlarini shu papkaga saqlash (kalibrlash uchun; sukut: saqlanmaydi)",
+    ),
 ) -> None:
     """Kanal va muhokama guruhi a'zolarini to'liq tekshirish (uzilsa — davom etadi)."""
     target = _resolve_channel(channel)
@@ -238,6 +243,7 @@ def scan(
                     force=force,
                     push_review=not no_review,
                     profile_delay=delay,
+                    save_photos=save_photos,
                     progress_cb=_progress,
                     on_start=_on_start,
                 )
