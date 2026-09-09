@@ -123,6 +123,7 @@ tgguard whoami                       # sessiya qaysi akkaunt ekanini ko'rsatadi
 tgguard scan --channel @mychannel    # kanal + muhokama guruhi a'zolarini tekshirish
 tgguard scan --limit 200             # sinov uchun faqat 200 ta
 tgguard scan --force                 # keshni e'tiborsiz qoldirib qayta tekshirish
+tgguard list                         # belgilangan profillar ro'yxati (havola + sabab)
 tgguard report                       # umumiy hisobot
 tgguard apply --dry-run              # (sukut bo'yicha) kim ban qilinishini ko'rsatadi
 tgguard apply --execute              # HAQIQIY ban (yozib tasdiqlash so'raydi)
@@ -144,6 +145,23 @@ Muhim xususiyatlar:
   lekin **hech kimni ban qilmaydi** — ban faqat `apply --execute` da bo'ladi.
 - Shubhali (review oralig'idagi) profillar bot tokeni orqali review kanalga
   tushadi, ya'ni barcha review xabarlari bitta joyda.
+
+### `tgguard list` — ro'yxatni terminalda ko'rish
+
+Review kanalsiz ham to'liq ro'yxatni ko'rish va Excel'ga chiqarish:
+
+```bash
+tgguard list                                  # spam deb belgilanganlar (sukut)
+tgguard list --verdict review                 # shubhalilar
+tgguard list --verdict all --limit 200        # hammasi
+tgguard list --min-score 0.7 --undecided      # yuqori ball, hali qaror qilinmagan
+tgguard list --csv spam.csv                   # Excel uchun CSV (utf-8-sig)
+```
+
+Har bir qatorda: ID, ism, **profil havolasi** (`https://t.me/<username>` yoki
+`tg://user?id=...`), ball, holat (`ban`/`review`/`ignore`), qaroringiz va sabab.
+Bu buyruq faqat bazadan o'qiydi — Telegram'ga ulanmaydi, ya'ni `api_id`/token
+bo'lmasa ham ishlaydi. CSV faylda sabab va bio to'liq ko'rinishda bo'ladi.
 
 `apply --execute` bosqichma-bosqich: avval nechta foydalanuvchi ban qilinishini
 aytadi, so'ng `yes` deb yozishni talab qiladi, keyin sekundiga ~1 ta (sozlanadi:
@@ -310,9 +328,9 @@ avtomatik ban umuman yo'q (qora ro'yxatdagilar ham faqat xabar qilinadi).
 pytest -q
 ```
 
-42 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
+44 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
 qaror ustuvorligi (oq ro'yxat > qora ro'yxat > ball), observe/enforce siyosati,
-review holat mashinasi, kesh, izoh shablonlari, hisobotlar, review xabari
+review holat mashinasi, kesh, izoh shablonlari, hisobot va `list` filtrlari, review xabari
 formati va **soxta Bot API** bilan to'liq real-vaqt quvuri (ban / observe /
 oq ro'yxat / qora ro'yxat + vaqtinchalik rasmlar o'chirilishi).
 NSFW klassifikator testlarda **mock** qilingan — CI da model yuklanmaydi

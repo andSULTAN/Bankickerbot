@@ -99,12 +99,17 @@ AUTO_BAN_NOTICE = (
 )
 
 
+def profile_url(user_id: int, username: str | None) -> str:
+    """Plain profile URL, used by the review caption and by `tgguard list`."""
+    return f"https://t.me/{username}" if username else f"tg://user?id={user_id}"
+
+
 def profile_line(name: str, user_id: int, username: str | None) -> str:
     """Clickable profile link + the numeric id (tg://user only resolves on
     clients that have already seen the user, so we always print the id too)."""
     safe_name = name or "(ismsiz)"
+    url = profile_url(user_id, username)
+    link = f'<a href="{url}">{safe_name}</a>'
     if username:
-        link = f'<a href="https://t.me/{username}">{safe_name}</a> (@{username})'
-    else:
-        link = f'<a href="tg://user?id={user_id}">{safe_name}</a>'
+        link += f" (@{username})"
     return f"{link}\nID: <code>{user_id}</code>"

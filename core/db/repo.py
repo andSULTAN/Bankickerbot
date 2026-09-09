@@ -20,6 +20,7 @@ from core.db.models import (
 )
 from core.enums import ActionStatus, ActionType, DecisionSource, Performer, Verdict
 from core.scoring import ScoreResult, UserProfile
+from core.strings import profile_url
 from core.text_utils import template_hash
 
 
@@ -421,6 +422,82 @@ class Repository:
             "actions": by_action,
             "pending_reviews": await self.count_pending_reviews(),
         }
+
+    async def list_checked_users(
+        self,
+        *,
+        verdict: str | None = None,
+        min_score: float | None = None,
+        channel_id: int | None = None,
+        undecided_only: bool = False,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict]:
+        """Rows for `tgguard list`: latest check per user + latest decision.
+
+        `verdict` filters on the *scoring* verdict (`ban` / `review` / `ignore`);
+        `undecided_only` drops users that already carry a manual decision.
+        """
+        latest_check = (
+            select(Check.user_id, func.max(Check.id).label("last_id"))
+            .group_by(Check.user_id)
+            .subquery()
+        )
+        stmt = (
+            select(Check, User)
+            .join(latest_check, Check.id == latest_check.c.last_id)
+            .join(User, User.telegram_id == Check.user_id)
+        )
+        if verdict:
+            stmt = stmt.where(Check.verdict == verdict)
+        if min_score is not None:
+            stmt = stmt.where(Check.score >= min_score)
+        if channel_id is not None:
+            stmt = stmt.where(Check.channel_id == channel_id)
+        stmt = stmt.order_by(Check.score.desc(), Check.id.desc()).limit(limit).offset(offset)
+
+        rows = (await self.session.execute(stmt)).all()
+        if not rows:
+            return []
+
+        # One extra query instead of N: latest classifying decision per user.
+        user_ids = [check.user_id for check, _ in rows]
+        latest_decision = (
+            select(Decision.user_id, func.max(Decision.id).label("last_id"))
+            .where(Decision.verdict != Verdict.SKIP, Decision.user_id.in_(user_ids))
+            .group_by(Decision.user_id)
+            .subquery()
+        )
+        decisions = {
+            decision.user_id: decision
+            for decision in await self.session.scalars(
+                select(Decision).join(latest_decision, Decision.id == latest_decision.c.last_id)
+            )
+        }
+
+        result: list[dict] = []
+        for check, user in rows:
+            decision = decisions.get(user.telegram_id)
+            if undecided_only and decision is not None and decision.source == DecisionSource.MANUAL:
+                continue
+            result.append(
+                {
+                    "user_id": user.telegram_id,
+                    "name": user.display_name,
+                    "username": user.username,
+                    "profile_url": profile_url(user.telegram_id, user.username),
+                    "has_photo": user.has_photo,
+                    "bio": user.bio or "",
+                    "score": round(check.score, 3),
+                    "verdict": check.verdict,
+                    "reasons": (check.reasons or {}).get("reasons", []),
+                    "decision": decision.verdict.value if decision else None,
+                    "decision_source": decision.source.value if decision else None,
+                    "channel_id": check.channel_id,
+                    "checked_at": check.checked_at,
+                }
+            )
+        return result
 
     async def top_reasons(self, limit: int = 10) -> list[tuple[str, int]]:
         """Most frequent signal names among the latest checks (computed in Python:

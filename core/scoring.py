@@ -251,7 +251,8 @@ def _build_reasons(signals: list[Signal], *, photoless: bool, capped: bool) -> l
             continue
         text = f"{signal.name}={signal.value:.2f}"
         if signal.detail:
-            text += f" ({signal.detail})"
+            # Details come from YAML regexes: drop escaping so a human can read them.
+            text += f" ({signal.detail.replace(chr(92), '')})"
         reasons.append(text)
     if photoless:
         reasons.append("no_photo (haqiqiy odam deb qaraldi)")

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import csv
+import sys
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -23,6 +26,19 @@ from core.nsfw import get_classifier
 from scanner.client import build_client
 from scanner.service import ScannerService, Targets
 
+
+def _force_utf8_output() -> None:
+    """Windows consoles default to a legacy code page, and spam profiles are
+    full of emoji: printing one must never crash the CLI."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError, ValueError):  # pragma: no cover - platform dependent
+            pass
+
+
+_force_utf8_output()
+
 app = typer.Typer(add_completion=False, help="TG-Guard skaner (Telethon, service account)")
 console = Console()
 
@@ -39,17 +55,19 @@ def _resolve_channel(channel: str | None) -> str | int:
 class _Context:
     """Builds every dependency once and cleans them up afterwards."""
 
-    def __init__(self, *, need_bot: bool = True) -> None:
+    def __init__(self, *, need_bot: bool = True, need_client: bool = True) -> None:
         self.settings = get_settings()
         self.cfg = get_scoring_config()
         self.db = Database(self.settings.database_url)
-        self.client = build_client(self.settings)
+        # DB-only commands (list/report) must work without Telegram credentials.
+        self.client = build_client(self.settings) if need_client else None
         self.classifier = get_classifier(self.cfg.nsfw)
         self.bot = None
         self.need_bot = need_bot
 
     async def __aenter__(self) -> ScannerService:
-        await self.client.start()
+        if self.client is not None:
+            await self.client.start()
         if self.need_bot and self.settings.bot_token and self.settings.review_channel_id:
             from aiogram import Bot
 
@@ -66,7 +84,8 @@ class _Context:
     async def __aexit__(self, *exc) -> None:
         if self.bot is not None:
             await self.bot.session.close()
-        await self.client.disconnect()
+        if self.client is not None:
+            await self.client.disconnect()
         await self.db.dispose()
 
 
@@ -157,12 +176,120 @@ def scan(
     asyncio.run(_run())
 
 
+# CLI verdict aliases -> the verdict stored on a check row.
+VERDICT_ALIASES = {
+    "spam": "ban",
+    "ban": "ban",
+    "review": "review",
+    "shubhali": "review",
+    "ignore": "ignore",
+    "toza": "ignore",
+    "all": None,
+    "hammasi": None,
+}
+
+
+@app.command("list")
+def list_users(
+    verdict: str = typer.Option(
+        "spam", "--verdict", "-v", help="spam | review | toza | all"
+    ),
+    limit: int = typer.Option(50, "--limit", "-n", help="Nechta qator ko'rsatilsin"),
+    min_score: float | None = typer.Option(None, "--min-score", help="Shu balldan yuqorilar"),
+    undecided: bool = typer.Option(
+        False, "--undecided", help="Faqat siz hali qaror qilmaganlar"
+    ),
+    channel: str | None = typer.Option(None, "--channel", "-c", help="Faqat shu kanal bo'yicha"),
+    csv_path: Path | None = typer.Option(None, "--csv", help="Natijani CSV faylga yozish"),
+) -> None:
+    """Belgilangan profillar ro'yxati: havola, ball va sabab bilan (bazadan)."""
+    key = verdict.strip().lower()
+    if key not in VERDICT_ALIASES:
+        raise typer.BadParameter("verdict: spam | review | toza | all")
+    channel_id: int | None = None
+    if channel:
+        resolved = _resolve_channel(channel)
+        if not isinstance(resolved, int):
+            raise typer.BadParameter("--channel bu buyruqda raqamli id bo'lishi kerak")
+        channel_id = resolved
+
+    async def _run() -> None:
+        async with _Context(need_bot=False, need_client=False) as service:
+            rows = await service.list_users(
+                verdict=VERDICT_ALIASES[key],
+                min_score=min_score,
+                channel_id=channel_id,
+                undecided_only=undecided,
+                limit=limit,
+            )
+            if not rows:
+                console.print(
+                    "[yellow]Hech narsa topilmadi. Avval `tgguard scan` ni ishga tushiring.[/]"
+                )
+                return
+
+            table = Table(title=f"Profillar ({key}, {len(rows)} ta)")
+            table.add_column("ID", style="dim", no_wrap=True)
+            table.add_column("Ism", max_width=18, overflow="ellipsis")
+            # The link must stay complete so it can be copied out of the terminal.
+            table.add_column("Havola", overflow="fold", min_width=24)
+            table.add_column("Ball", justify="right", no_wrap=True)
+            table.add_column("Holat", no_wrap=True)
+            table.add_column("Qaror", no_wrap=True)
+            table.add_column("Sabab", max_width=30, overflow="ellipsis")
+            for row in rows:
+                table.add_row(
+                    str(row["user_id"]),
+                    (row["name"] or "-")[:24],
+                    row["profile_url"],
+                    f"{row['score']:.2f}",
+                    row["verdict"],
+                    row["decision"] or "-",
+                    ", ".join(row["reasons"])[:60],
+                )
+            console.print(table)
+            console.print(
+                "Ban qilish uchun: [bold]tgguard apply --dry-run[/] → "
+                "[bold]tgguard apply --execute[/]; bittasini oqlash: "
+                "[bold]tgguard unban <id>[/]"
+            )
+
+            if csv_path:
+                _write_csv(csv_path, rows)
+                console.print(f"CSV yozildi: [bold]{csv_path}[/]")
+
+    asyncio.run(_run())
+
+
+def _write_csv(path: Path, rows: list[dict]) -> None:
+    """utf-8-sig: Excel CSV ni kirill/lotin harflari bilan to'g'ri ochsin."""
+    fields = [
+        "user_id",
+        "name",
+        "username",
+        "profile_url",
+        "score",
+        "verdict",
+        "decision",
+        "decision_source",
+        "has_photo",
+        "checked_at",
+        "reasons",
+        "bio",
+    ]
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({**row, "reasons": "; ".join(row["reasons"])})
+
+
 @app.command()
 def report() -> None:
     """Umumiy statistika: tekshirilgan / spam / review / haqiqiy / rasmsiz."""
 
     async def _run() -> None:
-        async with _Context(need_bot=False) as service:
+        async with _Context(need_bot=False, need_client=False) as service:
             data = await service.report()
             table = Table(title="TG-Guard hisobot")
             table.add_column("Ko'rsatkich")

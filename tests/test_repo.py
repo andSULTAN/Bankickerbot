@@ -172,3 +172,68 @@ async def test_scan_run_resume(db):
         assert resumed.id == run.id
         assert resumed.cursor["channel_queries"] == ["a"]
         assert await repo.seen_count(run.id) == 1
+
+
+async def test_list_checked_users(db, cfg, spam_profile, real_profile, photoless_links_profile):
+    async with db.session() as session:
+        repo = Repository(session)
+        for profile, nsfw in (
+            (spam_profile, 0.97),
+            (real_profile, 0.01),
+            (photoless_links_profile, None),
+        ):
+            await repo.upsert_user(profile, touch_checked=True)
+            await repo.record_check(
+                profile.telegram_id,
+                score_user(profile, cfg, nsfw_score=nsfw),
+                source=Performer.SCANNER,
+                channel_id=-100,
+            )
+        await repo.record_decision(
+            spam_profile.telegram_id, Verdict.SPAM, source=DecisionSource.AUTO
+        )
+
+        spam_rows = await repo.list_checked_users(verdict="ban")
+        review_rows = await repo.list_checked_users(verdict="review")
+        all_rows = await repo.list_checked_users()
+
+    assert [row["user_id"] for row in spam_rows] == [spam_profile.telegram_id]
+    assert spam_rows[0]["decision"] == "spam"
+    assert spam_rows[0]["reasons"]
+    # No username -> the tg:// fallback link, always alongside the numeric id.
+    assert spam_rows[0]["profile_url"] == f"tg://user?id={spam_profile.telegram_id}"
+
+    assert [row["user_id"] for row in review_rows] == [photoless_links_profile.telegram_id]
+
+    # Everything, highest score first.
+    assert len(all_rows) == 3
+    assert all_rows[0]["score"] >= all_rows[-1]["score"]
+    real_row = next(r for r in all_rows if r["user_id"] == real_profile.telegram_id)
+    assert real_row["profile_url"] == "https://t.me/jasur_dev"
+    assert real_row["decision"] is None
+
+
+async def test_list_filters(db, cfg, spam_profile, real_profile):
+    async with db.session() as session:
+        repo = Repository(session)
+        for profile, nsfw in ((spam_profile, 0.97), (real_profile, 0.01)):
+            await repo.upsert_user(profile, touch_checked=True)
+            await repo.record_check(
+                profile.telegram_id,
+                score_user(profile, cfg, nsfw_score=nsfw),
+                source=Performer.SCANNER,
+                channel_id=-100,
+            )
+        # A manual decision takes the user out of the "still to decide" list.
+        await repo.record_decision(
+            spam_profile.telegram_id,
+            Verdict.SPAM,
+            source=DecisionSource.MANUAL,
+            decided_by=42,
+        )
+
+        assert await repo.list_checked_users(min_score=0.9, limit=10)
+        assert not await repo.list_checked_users(channel_id=-999)
+        undecided = await repo.list_checked_users(undecided_only=True)
+        assert spam_profile.telegram_id not in [row["user_id"] for row in undecided]
+        assert await repo.list_checked_users(limit=1) != []

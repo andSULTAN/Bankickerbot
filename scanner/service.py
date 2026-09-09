@@ -320,6 +320,11 @@ class ScannerService:
             summary["top_reasons"] = await repo.top_reasons()
             return summary
 
+    async def list_users(self, **filters) -> list[dict]:
+        """Flagged users with their profile links (DB only, no Telegram calls)."""
+        async with self.db.session() as session:
+            return await Repository(session).list_checked_users(**filters)
+
     # --- apply -------------------------------------------------------------
 
     async def apply(
