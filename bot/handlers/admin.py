@@ -69,6 +69,37 @@ async def cmd_stats(message: Message, runtime: Runtime) -> None:
     )
 
 
+@router.message(Command("report"))
+async def cmd_report(message: Message, runtime: Runtime) -> None:
+    """The same picture as `tgguard report`, formatted for Telegram."""
+    if _deny(message, runtime):
+        await message.answer(strings.NOT_ADMIN)
+        return
+    async with runtime.db.session() as session:
+        repo = Repository(session)
+        data = await repo.summary()
+        top = await repo.top_reasons(limit=6)
+    verdicts = data["checks_by_verdict"]
+    decisions = data["decisions"]
+    lines = [f"• <code>{name}</code> — {count}" for name, count in top]
+    reasons = "\n".join(lines) or "—"
+    await message.answer(
+        strings.REPORT.format(
+            users=data["users"],
+            photoless=data["photoless"],
+            ban=verdicts.get("ban", 0),
+            review=verdicts.get("review", 0),
+            ignore=verdicts.get("ignore", 0),
+            spam=decisions.get("spam", 0),
+            real=decisions.get("real", 0),
+            pending=data["pending_reviews"],
+            reasons=reasons,
+            mode=runtime.mode,
+        ),
+        parse_mode="HTML",
+    )
+
+
 @router.message(Command("pending"))
 async def cmd_pending(message: Message, runtime: Runtime) -> None:
     if _deny(message, runtime):

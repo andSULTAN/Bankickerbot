@@ -36,9 +36,17 @@ NOT_ADMIN = "Bu buyruq faqat adminlar uchun."
 
 START = (
     "🛡 <b>TG-Guard</b>\n"
-    "Kanal va muhokama guruhini spam akkauntlardan himoya qiladi.\n\n"
-    "Buyruqlar:\n"
-    "/stats — statistika\n"
+    "Kanal va muhokama guruhini spam akkauntlardan himoya qiladi.\n"
+    "\n"
+    "<b>Sinash</b>\n"
+    "🖼 Menga rasm yuboring — uni NSFW modeli bilan tekshirib, ballni ko'rsataman.\n"
+    "↪️ Spam yozgan odamning xabarini menga forward qiling — uning profilini "
+    "baholab beraman (hech qanday chora ko'rilmaydi).\n"
+    "/check &lt;id&gt; — bitta foydalanuvchini sinovdan o'tkazish\n"
+    "\n"
+    "<b>Buyruqlar</b>\n"
+    "/report — to'liq hisobot\n"
+    "/stats — qisqa statistika\n"
     "/pending — kutayotgan tekshiruvlar soni\n"
     "/ban &lt;id&gt; — ban qilish\n"
     "/unban &lt;id&gt; — banni bekor qilish\n"
@@ -113,3 +121,96 @@ def profile_line(name: str, user_id: int, username: str | None) -> str:
     if username:
         link += f" (@{username})"
     return f"{link}\nID: <code>{user_id}</code>"
+
+
+# --- photo test (private chat) ----------------------------------------------
+
+PHOTO_TEST_WAIT = "⏳ Rasm tahlil qilinmoqda..."
+
+PHOTO_TEST_RESULT = (
+    "🖼 <b>Rasm tahlili</b>\n"
+    "\n"
+    "NSFW ehtimoli: <b>{nsfw:.2f}</b>\n"
+    "Shu rasm bergan ball: <b>{photo_score:.2f}</b> → {verdict}\n"
+    "\n"
+    "Chegaralar: ban ≥ {ban:.2f}, review ≥ {review:.2f}\n"
+    "{detections}"
+)
+
+PHOTO_TEST_NO_DETECTION = (
+    "\nModel hech qanday belgi topmadi — bu rasm toza deb baholandi."
+)
+PHOTO_TEST_DETECTIONS_TITLE = "\n<b>Topilgan belgilar:</b>\n"
+PHOTO_TEST_UNREADABLE = (
+    "❌ Bu faylni rasm sifatida o'qib bo'lmadi (video-avatar yoki buzuq fayl). "
+    "Bunday hollarda rasm balli 0 bo'ladi."
+)
+
+VERDICT_BADGE = {
+    "ban": "🚫 <b>spam</b> (avtomatik ban chegarasidan yuqori)",
+    "review": "🔎 <b>tekshirish kerak</b>",
+    "ignore": "✅ toza",
+}
+
+PHOTO_TEST_HINT = (
+    "\n<i>Eslatma: bu faqat rasm bo'yicha baho. Haqiqiy tekshiruvda bio, ism va "
+    "izoh matni ham qo'shiladi.</i>"
+)
+
+# --- profile test (forwarded message) ---------------------------------------
+
+PROFILE_TEST_WAIT = "⏳ Profil tekshirilmoqda..."
+PROFILE_TEST_NO_USER = (
+    "Bu xabarda muallif ko'rinmayapti (foydalanuvchi maxfiylik sozlamasi bilan "
+    "yashirgan). Uning ID sini bilsangiz: <code>/check &lt;id&gt;</code>"
+)
+PROFILE_TEST_TITLE = "🧪 <b>Sinov tekshiruvi</b> (hech qanday chora ko'rilmadi)"
+
+# --- scanner -> Telegram summary --------------------------------------------
+
+SCAN_SUMMARY = (
+    "📊 <b>Skan yakunlandi</b>\n"
+    "{title}\n"
+    "\n"
+    "Ko'rilgan: <b>{seen}</b>  (yangi tahlil: {analyzed}, keshdan: {cached})\n"
+    "🚫 Spam: <b>{spam}</b>\n"
+    "🔎 Tekshirish kerak: <b>{review}</b>\n"
+    "✅ Toza: <b>{clean}</b>\n"
+    "🖼 Rasmsiz: {photoless}\n"
+    "⚠️ Xatolar: {errors}\n"
+    "\n"
+    "Davomiyligi: {duration}\n"
+    "{next_step}"
+)
+
+SCAN_NEXT_STEP_SPAM = (
+    "Keyingi qadam: <code>tgguard list</code> bilan ro'yxatni ko'ring, "
+    "so'ng <code>tgguard apply --execute</code>."
+)
+SCAN_NEXT_STEP_CLEAN = "Bu qismda shubhali profil topilmadi."
+SCAN_CAPPED = (
+    "\n⚠️ Kanal 10 000 dan katta: ro'yxat qidiruv orqali to'ldirildi, "
+    "100% to'liq bo'lmasligi mumkin."
+)
+
+# --- /report -----------------------------------------------------------------
+
+REPORT = (
+    "📈 <b>Umumiy hisobot</b>\n"
+    "\n"
+    "Bazadagi foydalanuvchilar: <b>{users}</b> (rasmsiz: {photoless})\n"
+    "\n"
+    "<b>Oxirgi tekshiruvlar</b>\n"
+    "🚫 spam: {ban}\n"
+    "🔎 review: {review}\n"
+    "✅ toza: {ignore}\n"
+    "\n"
+    "<b>Qarorlar</b>\n"
+    "spam: {spam} / haqiqiy: {real}\n"
+    "Kutayotgan review: <b>{pending}</b>\n"
+    "\n"
+    "<b>Eng ko'p uchragan sabablar</b>\n"
+    "{reasons}\n"
+    "\n"
+    "Rejim: <b>{mode}</b>"
+)

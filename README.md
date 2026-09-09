@@ -237,6 +237,27 @@ Bot buyruqlari (**shaxsiy chatda**, faqat `ADMIN_IDS` ro'yxatidagilar uchun):
 | `/whitelist <id>` | Oq ro'yxatga qo'shish |
 | `/mode` / `/mode enforce` | Rejimni ko'rish / almashtirish |
 | `/health` | Baza va sozlamalar holati |
+| `/report` | To'liq hisobot (terminalsiz) |
+| `/check <id>` | Bitta foydalanuvchini sinovdan o'tkazish |
+
+### Botni sinash (chora ko'rilmaydi)
+
+- **Rasm yuboring** (shaxsiy chatda, admin sifatida) — bot NSFW ehtimolini,
+  shu rasm beradigan ballni, chegaralarni va model topgan belgilar ro'yxatini
+  qaytaradi. Chegaralarni sozlash uchun eng qulay yo'l.
+- **Xabarni forward qiling** — o'sha odamning profili (rasm + bio + ism)
+  baholanadi va ball sababi bilan chiqadi.
+- `/check <id>` — id bo'yicha bitta profilni tekshirish.
+
+Bularning hech biri hech kimni ban qilmaydi va bazadagi qarorlarni
+o'zgartirmaydi — faqat ko'rsatadi.
+
+### Skanerdan Telegram'ga xulosa
+
+`tgguard scan` tugagach, adminlarga formatlangan xulosa yuboriladi
+(ko'rilgan / spam / review / toza / davomiylik). O'chirish: `--no-notify`.
+Buning uchun `BOT_TOKEN` va `ADMIN_IDS` to'ldirilgan bo'lishi va siz botga
+bir marta `/start` bosgan bo'lishingiz kifoya (review kanal shart emas).
 
 Review kanaldagi har bir xabarda 3 ta tugma: **🚫 Spam** (hamma joyda ban +
 qo'lda qaror), **✅ Haqiqiy** (oq ro'yxat, ban bo'lgan bo'lsa bekor qilinadi),
@@ -372,7 +393,7 @@ avtomatik ban umuman yo'q (qora ro'yxatdagilar ham faqat xabar qilinadi).
 pytest -q
 ```
 
-53 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
+57 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
 qaror ustuvorligi (oq ro'yxat > qora ro'yxat > ball), observe/enforce siyosati,
 review holat mashinasi, kesh, izoh shablonlari, hisobot va `list` filtrlari, review xabari
 formati va **soxta Bot API** bilan to'liq real-vaqt quvuri (ban / observe /

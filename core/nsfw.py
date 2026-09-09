@@ -51,12 +51,18 @@ class NsfwClassifier(Protocol):
 
     def score_images(self, paths: list[str | Path]) -> float: ...
 
+    def score_image_details(self, path: str | Path) -> tuple[float, list[tuple[str, float]]]: ...
+
 
 class _BaseClassifier:
     name = "base"
 
     def score_image(self, path: str | Path) -> float:  # pragma: no cover - interface
         raise NotImplementedError
+
+    def score_image_details(self, path: str | Path) -> tuple[float, list[tuple[str, float]]]:
+        """Score plus the raw (class, probability) pairs, for `/test` replies."""
+        return self.score_image(path), []
 
     def score_images(self, paths: list[str | Path]) -> float:
         """Max score across a user's photos (the strongest photo decides)."""
@@ -89,25 +95,32 @@ class NudeNetClassifier(_BaseClassifier):
         return self._detector
 
     def score_image(self, path: str | Path) -> float:
+        return self.score_image_details(path)[0]
+
+    def score_image_details(self, path: str | Path) -> tuple[float, list[tuple[str, float]]]:
         normalized = normalize_image(path)
         if normalized is None:
             # Not a decodable image (e.g. a video avatar): no photo signal.
-            return 0.0
+            return 0.0, []
         try:
             detections = self._get_detector().detect(str(normalized))
         finally:
             normalized.unlink(missing_ok=True)
+
         best = 0.0
+        found: list[tuple[str, float]] = []
         for detection in detections or []:
             label = detection.get("class") or detection.get("label") or ""
             raw = float(detection.get("score", 0.0))
             if raw < self.config.min_detection_score:
                 continue
+            found.append((label, raw))
             multiplier = self.config.unsafe_classes.get(label)
             if multiplier is None:
                 continue
             best = max(best, min(1.0, raw * multiplier))
-        return best
+        found.sort(key=lambda item: item[1], reverse=True)
+        return best, found
 
 
 class StubClassifier(_BaseClassifier):
@@ -125,6 +138,10 @@ class StubClassifier(_BaseClassifier):
 
     def score_image(self, path: str | Path) -> float:
         return self.scores.get(Path(path).name, self.default)
+
+    def score_image_details(self, path: str | Path) -> tuple[float, list[tuple[str, float]]]:
+        score = self.score_image(path)
+        return score, [("STUB_CLASS", score)] if score else []
 
 
 def get_classifier(config: NsfwConfig) -> NsfwClassifier:

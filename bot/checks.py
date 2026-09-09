@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import tempfile
 from pathlib import Path
 
@@ -85,7 +86,9 @@ async def build_profile(
 
     nsfw = 0.0
     if paths:
-        nsfw = runtime.classifier.score_images([str(p) for p in paths])
+        nsfw = await asyncio.to_thread(
+            runtime.classifier.score_images, [str(p) for p in paths]
+        )
 
     keep = paths[0] if paths else None
     for path in paths[1:]:

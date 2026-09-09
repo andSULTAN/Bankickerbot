@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import html
 import sys
 from pathlib import Path
+from time import perf_counter
 
 import typer
 from rich.console import Console
@@ -19,6 +21,7 @@ from rich.progress import (
 )
 from rich.table import Table
 
+from core import strings
 from core.config import get_scoring_config, get_settings
 from core.db.session import Database
 from core.logging import setup_logging
@@ -41,6 +44,38 @@ _force_utf8_output()
 
 app = typer.Typer(add_completion=False, help="TG-Guard skaner (Telethon, service account)")
 console = Console()
+
+
+def format_duration(seconds: float) -> str:
+    minutes, secs = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours} soat {minutes} daq"
+    if minutes:
+        return f"{minutes} daq {secs} son"
+    return f"{secs} son"
+
+
+def build_scan_summary(stats, *, title: str, seconds: float) -> str:
+    """The Telegram message sent to the admins when a scan finishes."""
+    data = stats.as_dict()
+    flagged = data["spam"] + data["review"]
+    next_step = strings.SCAN_NEXT_STEP_SPAM if flagged else strings.SCAN_NEXT_STEP_CLEAN
+    if data["capped"]:
+        next_step += strings.SCAN_CAPPED
+    return strings.SCAN_SUMMARY.format(
+        title=html.escape(title),
+        seen=data["seen"],
+        analyzed=data["analyzed"],
+        cached=data["cached"],
+        spam=data["spam"],
+        review=data["review"],
+        clean=data["clean"],
+        photoless=data["photoless"],
+        errors=data["errors"],
+        duration=format_duration(seconds),
+        next_step=next_step,
+    )
 
 
 def _resolve_channel(channel: str | None) -> str | int:
@@ -68,7 +103,9 @@ class _Context:
     async def __aenter__(self) -> ScannerService:
         if self.client is not None:
             await self.client.start()
-        if self.need_bot and self.settings.bot_token and self.settings.review_channel_id:
+        # A bot token alone is enough: even without a review channel the
+        # scanner can send its summary to the admins' private chats.
+        if self.need_bot and self.settings.bot_token:
             from aiogram import Bot
 
             self.bot = Bot(self.settings.bot_token)
@@ -151,10 +188,15 @@ def scan(
         False, "--force", help="Keshni e'tiborsiz qoldirib qayta tekshirish"
     ),
     no_review: bool = typer.Option(False, "--no-review", help="Review kanalga yubormaslik"),
+    no_notify: bool = typer.Option(
+        False, "--no-notify", help="Yakuniy xulosani Telegram'ga yubormaslik"
+    ),
     delay: float = typer.Option(0.35, help="Profil so'rovlari orasidagi pauza (soniya)"),
 ) -> None:
     """Kanal va muhokama guruhi a'zolarini to'liq tekshirish (uzilsa — davom etadi)."""
     target = _resolve_channel(channel)
+    started = perf_counter()
+    title = {"value": str(target)}
 
     async def _run() -> None:
         async with _Context() as service:
@@ -171,6 +213,7 @@ def scan(
 
                 def _on_start(targets: Targets) -> None:
                     total = limit or targets.expected_total or 1
+                    title["value"] = targets.channel_title
                     progress.update(
                         task,
                         total=total,
@@ -210,6 +253,14 @@ def scan(
                     "[yellow]⚠️ Kanal 10 000 dan katta: qidiruv orqali to'ldirildi, "
                     "ro'yxat 100% to'liq bo'lmasligi mumkin. Skanni takrorlab turing.[/]"
                 )
+
+            if not no_notify:
+                summary = build_scan_summary(
+                    stats, title=title["value"], seconds=perf_counter() - started
+                )
+                sent = await service.notify_admins(summary)
+                if sent:
+                    console.print(f"[green]Xulosa Telegram'ga yuborildi ({sent} ta admin).[/]")
 
     asyncio.run(_run())
 

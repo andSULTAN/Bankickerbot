@@ -189,3 +189,63 @@ def tempdir_root() -> str:
     import tempfile
 
     return tempfile.gettempdir()
+
+
+# --- private-chat testing tools ---------------------------------------------
+
+
+def test_photo_report_flags_an_explicit_image(cfg):
+    from bot.handlers.testing import format_photo_report
+
+    runtime = SimpleNamespace(cfg=cfg)
+    text = format_photo_report(
+        0.97, [("FEMALE_BREAST_EXPOSED", 0.97), ("BUTTOCKS_EXPOSED", 0.61)], runtime
+    )
+
+    assert "0.97" in text
+    assert "spam" in text  # verdict badge
+    assert "FEMALE_BREAST_EXPOSED" in text
+    assert "BUTTOCKS_EXPOSED" in text
+
+
+def test_photo_report_on_a_clean_image(cfg):
+    from bot.handlers.testing import format_photo_report
+    from core import strings
+
+    runtime = SimpleNamespace(cfg=cfg)
+    text = format_photo_report(0.0, [], runtime)
+
+    assert strings.PHOTO_TEST_NO_DETECTION.strip() in text
+    assert "toza" in text
+
+
+def test_photo_report_escapes_detection_labels(cfg):
+    from bot.handlers.testing import format_photo_report
+
+    runtime = SimpleNamespace(cfg=cfg)
+    text = format_photo_report(0.5, [("<b>evil</b>", 0.5)], runtime)
+    assert "<b>evil</b>" not in text
+    assert "&lt;b&gt;evil&lt;/b&gt;" in text
+
+
+def test_scan_summary_message():
+    from scanner.cli import build_scan_summary
+    from scanner.service import ScanStats
+
+    flagged = build_scan_summary(
+        ScanStats(seen=100, analyzed=90, cached=10, spam=3, review=7, clean=80),
+        title="Kanal & Co",
+        seconds=90,
+    )
+    assert "<b>3</b>" in flagged and "<b>7</b>" in flagged
+    assert "tgguard apply" in flagged
+    assert "Kanal &amp; Co" in flagged  # HTML-escaped title
+    assert "1 daq 30 son" in flagged
+
+    clean = build_scan_summary(ScanStats(seen=50, analyzed=50, clean=50), title="X", seconds=5)
+    assert "topilmadi" in clean
+
+    capped = build_scan_summary(
+        ScanStats(seen=10000, analyzed=10000, clean=10000, capped=True), title="X", seconds=5
+    )
+    assert "10 000 dan katta" in capped

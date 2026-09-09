@@ -433,6 +433,22 @@ class ScannerService:
             )
         return {"user_id": user_id, "ok": error is None, "error": error}
 
+    async def notify_admins(self, text: str) -> int:
+        """Send a formatted message to every admin (needs BOT_TOKEN)."""
+        if self.bot is None or not self.settings.admin_ids:
+            return 0
+        sent = 0
+        for admin_id in self.settings.admin_ids:
+            try:
+                await self.bot.send_message(
+                    admin_id, text, parse_mode="HTML", disable_web_page_preview=True
+                )
+                sent += 1
+            except Exception as exc:
+                # Most likely the admin never pressed Start in the bot's chat.
+                log.warning("admin_notify_failed", admin_id=admin_id, error=str(exc))
+        return sent
+
     async def list_chats(self, *, query: str | None = None) -> list[dict]:
         """Channels and groups the service account is a member of, with the
         `-100...` ids that go into `.env`."""
