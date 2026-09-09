@@ -1,0 +1,60 @@
+[project]
+name = "tg-guard"
+version = "0.1.0"
+description = "Telegram anti-spam system for channels and their linked discussion groups"
+requires-python = ">=3.11"
+dependencies = [
+    "aiogram>=3.7,<4",
+    "telethon>=1.36,<2",
+    "sqlalchemy[asyncio]>=2.0.30,<3",
+    "asyncpg>=0.30",
+    "alembic>=1.13",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "pyyaml>=6.0",
+    "structlog>=24.1",
+    "typer>=0.12",
+    "rich>=13.7",
+    "pillow>=10.3",
+]
+
+[project.optional-dependencies]
+nsfw = ["nudenet>=3.4"]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "aiosqlite>=0.20",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+tgguard = "scanner.cli:app"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["core", "core.db", "scanner", "bot", "bot.handlers"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "C4"]
+# Telegram/network calls are wrapped in deliberate catch-alls that always log
+# and record the failure; a crashing scan or handler would be worse.
+ignore = [
+    "B008",   # typer.Option() in defaults is the documented Typer style
+    "UP042",  # str+Enum is deliberate: SQLAlchemy stores the .value
+]
+
+[tool.ruff.lint.per-file-ignores]
+# sys.path bootstrap must run before the local imports.
+"tests/conftest.py" = ["E402"]
+"scripts/sample_scan.py" = ["E402"]

@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tgguard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env da bo'lishi shart}
+      POSTGRES_DB: ${POSTGRES_DB:-tgguard}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Lokal skaner shu portga ulanadi.
+      # XAVFSIZ VARIANT: quyidagi qatorni "127.0.0.1:5432:5432" holida qoldiring
+      # va VPS ga SSH tunnel oching (README ga qarang).
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tgguard}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bot:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tgguard}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tgguard}
+    volumes:
+      # scoring.yaml ni konteynerni qayta qurmasdan tahrirlash uchun.
+      - ./config:/app/config:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  pgdata:

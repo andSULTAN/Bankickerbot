@@ -1,0 +1,130 @@
+# TG-Guard scoring configuration.
+# Bu faylni tahrirlash uchun kodga tegish shart emas — bot/scanner qayta ishga tushganda
+# yangi qiymatlarni o'qiydi.
+
+thresholds:
+  ban: 0.85      # >= ban  -> spam (enforce rejimida avtomatik ban)
+  review: 0.50   # >= review va < ban -> qo'lda ko'rib chiqish
+
+# Har bir signalning umumiy ballga qo'shadigan maksimal hissasi.
+# Yakuniy ball = clamp(sum(weight * signal_value), 0, 1).
+weights:
+  nsfw_photo: 0.90
+  bio_links: 0.45
+  name_pattern: 0.35
+  comment_pattern: 0.45
+  comment_timing: 0.10
+  no_username: 0.05
+  premium: -0.10      # Premium akkaunt — biroz "haqiqiy" tomonga suradi
+  id_magnitude: 0.05  # Juda yangi (katta) id — juda zaif belgi
+
+# Zaif signallar: bular yolg'iz o'zi hech qachon ban chegarasiga yetkazmasligi kerak.
+weak_signals: [no_username, premium, id_magnitude, comment_timing]
+
+photoless:
+  # Profil rasmi yo'q foydalanuvchi — sukut bo'yicha haqiqiy odam deb qaraladi.
+  # nsfw_photo = 0 bo'ladi va zaif signallar umuman hisobga olinmaydi.
+  drop_weak_signals: true
+  # Matn/link signallari yolg'iz o'zi ban chegarasiga yetsa — faqat shundagina spam.
+  # Aks holda ball shu qiymatdan oshmaydi (ya'ni review yoki e'tiborsiz).
+  max_score_without_strong: 0.49
+  strong_signals: [bio_links, name_pattern, comment_pattern]
+
+nsfw:
+  # NudeNet detektori qaytaradigan sinflar -> xavflilik koeffitsienti.
+  # Yakuniy nsfw qiymati = max(class_score * multiplier).
+  unsafe_classes:
+    FEMALE_GENITALIA_EXPOSED: 1.0
+    MALE_GENITALIA_EXPOSED: 1.0
+    ANUS_EXPOSED: 1.0
+    FEMALE_BREAST_EXPOSED: 0.95
+    BUTTOCKS_EXPOSED: 0.85
+    FEMALE_GENITALIA_COVERED: 0.55
+    FEMALE_BREAST_COVERED: 0.35
+    BUTTOCKS_COVERED: 0.30
+    BELLY_EXPOSED: 0.20
+  # Shu qiymatdan past detektsiyalar tashlab yuboriladi.
+  min_detection_score: 0.35
+  # Ko'pi bilan nechta oxirgi profil rasmi tekshiriladi.
+  max_photos: 3
+
+bio:
+  # Bio ichidagi link/taklif belgilari.
+  url_patterns:
+    - 't\.me/'
+    - 'telegram\.me/'
+    - 'telegra\.ph/'
+    - "https?://"
+    - 'www\.'
+    - "@[A-Za-z][A-Za-z0-9_]{4,}"
+  # Kalit so'zlar (uz / ru / en). Ro'yxatni bemalol kengaytiring.
+  keywords:
+    - "18+"
+    - "21+"
+    - "kirish"
+    - "yopiq kanal"
+    - "yopiq guruh"
+    - "shaxsiy yozing"
+    - "pastdagi havola"
+    - "havola profilda"
+    - "kanalga o'ting"
+    - "bepul kirish"
+    - "интим"
+    - "закрытый канал"
+    - "закрытая группа"
+    - "переходи"
+    - "жми"
+    - "ссылка в профиле"
+    - "пиши в лс"
+    - "мой канал"
+    - "приват"
+    - "слив"
+    - "join"
+    - "private channel"
+    - "closed channel"
+    - "link in bio"
+    - "click here"
+    - "free access"
+    - "onlyfans"
+    - "hot"
+    - "sexy"
+    - "nude"
+  # Bitta moslik shu qiymatni beradi, har bir qo'shimcha moslik ustiga qo'shiladi (1.0 gacha).
+  match_value: 0.6
+  extra_match_value: 0.2
+
+name:
+  patterns:
+    - '18\+'
+    - '21\+'
+    - 't\.me/'
+    - "https?://"
+    - "@[A-Za-z][A-Za-z0-9_]{4,}"
+  emojis: ["🔞", "💋", "🍑", "🍆", "💦", "😈", "❤️‍🔥", "🥵", "👅", "🔥🔥"]
+  match_value: 0.7
+  extra_match_value: 0.15
+
+comment:
+  url_patterns:
+    - 't\.me/'
+    - 'telegra\.ph/'
+    - "https?://"
+    - "joinchat"
+    - "@[A-Za-z][A-Za-z0-9_]{4,}"
+  link_value: 0.7
+  # Shu xil normallashtirilgan matn allaqachon boshqa flagged foydalanuvchilarda
+  # ko'rilgan bo'lsa (template spam) — shu qiymat.
+  template_value: 0.9
+  # Post chiqqandan keyin N soniya ichida yozilgan izoh shubhali.
+  fast_reply_seconds: 30
+
+cache:
+  # Shu kun ichida tekshirilgan foydalanuvchi qayta yuklab olinmaydi
+  # (profil rasmi id si o'zgarmagan bo'lsa).
+  recheck_days: 30
+
+actions:
+  # Ban tezligi (sekundda 1 / bans_interval_seconds).
+  bans_interval_seconds: 1.5
+  # Review oralig'idagi foydalanuvchining izohini o'chirish kerakmi?
+  delete_comment_on_review: false
