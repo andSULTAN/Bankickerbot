@@ -86,6 +86,10 @@ class NsfwConfig(BaseModel):
     unsafe_classes: dict[str, float] = Field(default_factory=dict)
     min_detection_score: float = 0.35
     max_photos: int = 3
+    # "noisy_or": several mild signals together (bikini top + bottom + belly)
+    # add up, which is exactly what this spam wave looks like.
+    # "max": only the single strongest detection counts.
+    combine: str = "noisy_or"
 
 
 class BioConfig(BaseModel):

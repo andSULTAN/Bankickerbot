@@ -39,10 +39,16 @@ nsfw:
     ANUS_EXPOSED: 1.0
     FEMALE_BREAST_EXPOSED: 0.95
     BUTTOCKS_EXPOSED: 0.85
-    FEMALE_GENITALIA_COVERED: 0.55
-    FEMALE_BREAST_COVERED: 0.35
-    BUTTOCKS_COVERED: 0.30
-    BELLY_EXPOSED: 0.20
+    # "Yopiq" sinflar: bikini/ichki kiyim. Yakka holda kam, lekin bir nechtasi
+    # birga kelsa (yuqoridagi + pastdagi + qorin) — bu spam to'lqinining tipik
+    # profil rasmi. Ular birikib ball beradi (combine: noisy_or).
+    FEMALE_GENITALIA_COVERED: 0.60
+    FEMALE_BREAST_COVERED: 0.45
+    BUTTOCKS_COVERED: 0.45
+    BELLY_EXPOSED: 0.25
+    ARMPITS_EXPOSED: 0.10
+  # Bir nechta zaif belgini qanday qo'shish: noisy_or (birikadi) yoki max (faqat eng kuchlisi).
+  combine: noisy_or
   # Shu qiymatdan past detektsiyalar tashlab yuboriladi.
   min_detection_score: 0.35
   # Ko'pi bilan nechta oxirgi profil rasmi tekshiriladi.

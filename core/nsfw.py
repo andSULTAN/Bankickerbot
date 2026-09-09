@@ -25,6 +25,25 @@ log = get_logger(__name__)
 MAX_SIDE = 1024
 
 
+def combine_contributions(values, strategy: str = "noisy_or") -> float:
+    """Fold per-class contributions into one probability in [0, 1].
+
+    `max` keeps only the strongest signal. `noisy_or` (default) treats the
+    signals as independent evidence: 1 - PROD(1 - value). A bikini photo fires
+    several mild classes at once and only the second form catches that, while
+    an already-explicit single detection stays where it was.
+    """
+    contributions = [max(0.0, min(1.0, value)) for value in values]
+    if not contributions:
+        return 0.0
+    if strategy == "max":
+        return max(contributions)
+    product = 1.0
+    for value in contributions:
+        product *= 1.0 - value
+    return min(1.0, 1.0 - product)
+
+
 def normalize_image(path: str | Path) -> Path | None:
     """Re-encode to a plain RGB JPEG. Returns None if this is not an image."""
     try:
@@ -107,8 +126,10 @@ class NudeNetClassifier(_BaseClassifier):
         finally:
             normalized.unlink(missing_ok=True)
 
-        best = 0.0
         found: list[tuple[str, float]] = []
+        # Per class, because two detections of the same class (e.g. both
+        # breasts) are one piece of evidence, not two.
+        per_class: dict[str, float] = {}
         for detection in detections or []:
             label = detection.get("class") or detection.get("label") or ""
             raw = float(detection.get("score", 0.0))
@@ -118,9 +139,11 @@ class NudeNetClassifier(_BaseClassifier):
             multiplier = self.config.unsafe_classes.get(label)
             if multiplier is None:
                 continue
-            best = max(best, min(1.0, raw * multiplier))
+            contribution = min(1.0, raw * multiplier)
+            per_class[label] = max(per_class.get(label, 0.0), contribution)
+
         found.sort(key=lambda item: item[1], reverse=True)
-        return best, found
+        return combine_contributions(per_class.values(), self.config.combine), found
 
 
 class StubClassifier(_BaseClassifier):

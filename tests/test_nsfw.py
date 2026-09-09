@@ -52,7 +52,14 @@ def test_nudenet_class_weighting(monkeypatch, tmp_path):
 
     photo = tmp_path / "photo.jpg"
     Image.new("RGB", (128, 128), (120, 90, 70)).save(photo)
+
+    # max: only the strongest class counts -> 0.80 * 0.95
+    classifier.config.combine = "max"
     assert abs(classifier.score_image(photo) - 0.76) < 1e-6
+
+    # noisy_or: the weak BELLY_EXPOSED signal adds on top -> 1 - 0.24 * 0.82
+    classifier.config.combine = "noisy_or"
+    assert abs(classifier.score_image(photo) - 0.8032) < 1e-4
 
 
 def test_normalize_image_reencodes_and_downscales(tmp_path):
@@ -97,3 +104,83 @@ def test_unreadable_image_never_reaches_the_detector(tmp_path, monkeypatch):
     broken = tmp_path / "broken.jpg"
     broken.write_bytes(b"not an image")
     assert classifier.score_image(broken) == 0.0
+
+
+# Real detections from a bikini profile photo of this spam wave, as returned
+# by NudeNet. Any single one of them is mild; together they are the signature.
+BIKINI_DETECTIONS = [
+    {"class": "FACE_FEMALE", "score": 0.87},
+    {"class": "FEMALE_BREAST_COVERED", "score": 0.81},
+    {"class": "FEMALE_GENITALIA_COVERED", "score": 0.81},
+    {"class": "BELLY_EXPOSED", "score": 0.80},
+    {"class": "FEMALE_BREAST_COVERED", "score": 0.79},
+    {"class": "ARMPITS_EXPOSED", "score": 0.66},
+]
+
+
+def _classifier_with(detections, config, monkeypatch, tmp_path):
+    from PIL import Image
+
+    classifier = NudeNetClassifier(config)
+
+    class FakeDetector:
+        def detect(self, path):
+            return detections
+
+    monkeypatch.setattr(classifier, "_get_detector", lambda: FakeDetector())
+    photo = tmp_path / "photo.jpg"
+    Image.new("RGB", (128, 128), (100, 100, 100)).save(photo)
+    return classifier, photo
+
+
+def test_combine_contributions_strategies():
+    from core.nsfw import combine_contributions
+
+    values = [0.45, 0.36, 0.20]
+    assert combine_contributions(values, "max") == 0.45
+    # Independent evidence: clearly above the strongest single signal.
+    assert combine_contributions(values, "noisy_or") > 0.70
+    assert combine_contributions([], "noisy_or") == 0.0
+    assert combine_contributions([0.99, 0.99], "noisy_or") <= 1.0
+
+
+def test_bikini_photo_reaches_the_review_range(cfg, monkeypatch, tmp_path):
+    """Taking only the strongest class scored this 0.45 and let it through."""
+    classifier, photo = _classifier_with(BIKINI_DETECTIONS, cfg.nsfw, monkeypatch, tmp_path)
+
+    score, detections = classifier.score_image_details(photo)
+
+    assert score > 0.70
+    assert detections[0][0] == "FACE_FEMALE"  # sorted by raw probability
+    photo_score = score * cfg.weights["nsfw_photo"]
+    assert cfg.thresholds.review <= photo_score < cfg.thresholds.ban
+
+
+def test_duplicate_classes_count_once(cfg, monkeypatch, tmp_path):
+    """Two detections of the same class are one piece of evidence."""
+    single = [{"class": "FEMALE_BREAST_COVERED", "score": 0.81}]
+    doubled = single * 3
+
+    one, _ = _classifier_with(single, cfg.nsfw, monkeypatch, tmp_path)
+    many, photo = _classifier_with(doubled, cfg.nsfw, monkeypatch, tmp_path)
+    assert one.score_image(photo) == many.score_image(photo)
+
+
+def test_everyday_photos_stay_clean(cfg, monkeypatch, tmp_path):
+    beach = [
+        {"class": "MALE_BREAST_EXPOSED", "score": 0.90},
+        {"class": "BELLY_EXPOSED", "score": 0.85},
+        {"class": "ARMPITS_EXPOSED", "score": 0.70},
+        {"class": "FEET_EXPOSED", "score": 0.60},
+    ]
+    classifier, photo = _classifier_with(beach, cfg.nsfw, monkeypatch, tmp_path)
+    assert classifier.score_image(photo) * cfg.weights["nsfw_photo"] < cfg.thresholds.review
+
+
+def test_explicit_photo_still_bans(cfg, monkeypatch, tmp_path):
+    explicit = [
+        {"class": "FEMALE_BREAST_EXPOSED", "score": 0.95},
+        {"class": "FEMALE_GENITALIA_EXPOSED", "score": 0.88},
+    ]
+    classifier, photo = _classifier_with(explicit, cfg.nsfw, monkeypatch, tmp_path)
+    assert classifier.score_image(photo) * cfg.weights["nsfw_photo"] >= cfg.thresholds.ban
