@@ -9,7 +9,7 @@ thresholds:
 # Har bir signalning umumiy ballga qo'shadigan maksimal hissasi.
 # Yakuniy ball = clamp(sum(weight * signal_value), 0, 1).
 weights:
-  nsfw_photo: 0.90
+  nsfw_photo: 0.95
   bio_links: 0.45
   name_pattern: 0.35
   comment_pattern: 0.45
@@ -38,14 +38,14 @@ nsfw:
     MALE_GENITALIA_EXPOSED: 1.0
     ANUS_EXPOSED: 1.0
     FEMALE_BREAST_EXPOSED: 0.95
-    BUTTOCKS_EXPOSED: 0.85
+    BUTTOCKS_EXPOSED: 0.90
     # "Yopiq" sinflar: bikini/ichki kiyim. Yakka holda kam, lekin bir nechtasi
     # birga kelsa (yuqoridagi + pastdagi + qorin) — bu spam to'lqinining tipik
     # profil rasmi. Ular birikib ball beradi (combine: noisy_or).
-    FEMALE_GENITALIA_COVERED: 0.60
-    FEMALE_BREAST_COVERED: 0.45
-    BUTTOCKS_COVERED: 0.45
-    BELLY_EXPOSED: 0.25
+    FEMALE_GENITALIA_COVERED: 0.85
+    FEMALE_BREAST_COVERED: 0.80
+    BUTTOCKS_COVERED: 0.75
+    BELLY_EXPOSED: 0.30
     ARMPITS_EXPOSED: 0.10
   # Bir nechta zaif belgini qanday qo'shish: noisy_or (birikadi) yoki max (faqat eng kuchlisi).
   combine: noisy_or

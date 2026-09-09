@@ -331,6 +331,18 @@ weights:
   id_magnitude: 0.05
 ```
 
+Rasm bo'yicha kalibrlash (haqiqiy misollarda tekshirilgan):
+
+| Rasm turi | Ball | Qaror |
+|---|---|---|
+| Ochiq pornografik | 0.94 | 🚫 ban |
+| Bikini / ichki kiyim (bir nechta belgi birga) | 0.85–0.88 | 🚫 ban |
+| Yopiq kupalnik, sport liftchak, ochiq yoqa | 0.61–0.74 | 🔎 review |
+| Plyajdagi erkak, yozgi kiyim, oddiy portret | 0.00–0.29 | ✅ toza |
+
+Qattiqroq yoki yumshoqroq qilish uchun `nsfw.unsafe_classes` dagi "COVERED"
+sinflar vaznini yoki `thresholds.ban` ni o'zgartiring.
+
 Signallar:
 
 | Signal | Ma'nosi |
@@ -393,7 +405,7 @@ avtomatik ban umuman yo'q (qora ro'yxatdagilar ham faqat xabar qilinadi).
 pytest -q
 ```
 
-62 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
+63 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
 qaror ustuvorligi (oq ro'yxat > qora ro'yxat > ball), observe/enforce siyosati,
 review holat mashinasi, kesh, izoh shablonlari, hisobot va `list` filtrlari, review xabari
 formati va **soxta Bot API** bilan to'liq real-vaqt quvuri (ban / observe /

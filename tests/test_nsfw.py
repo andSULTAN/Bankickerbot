@@ -144,15 +144,27 @@ def test_combine_contributions_strategies():
     assert combine_contributions([0.99, 0.99], "noisy_or") <= 1.0
 
 
-def test_bikini_photo_reaches_the_review_range(cfg, monkeypatch, tmp_path):
+def test_bikini_photo_is_banned_on_the_photo_alone(cfg, monkeypatch, tmp_path):
     """Taking only the strongest class scored this 0.45 and let it through."""
     classifier, photo = _classifier_with(BIKINI_DETECTIONS, cfg.nsfw, monkeypatch, tmp_path)
 
     score, detections = classifier.score_image_details(photo)
 
-    assert score > 0.70
     assert detections[0][0] == "FACE_FEMALE"  # sorted by raw probability
     photo_score = score * cfg.weights["nsfw_photo"]
+    assert photo_score >= cfg.thresholds.ban
+
+
+def test_borderline_swimwear_only_goes_to_review(cfg, monkeypatch, tmp_path):
+    """One or two moderate signals must stay a human decision, not a ban."""
+    borderline = [
+        {"class": "FEMALE_BREAST_COVERED", "score": 0.85},
+        {"class": "BELLY_EXPOSED", "score": 0.80},
+        {"class": "ARMPITS_EXPOSED", "score": 0.70},
+    ]
+    classifier, photo = _classifier_with(borderline, cfg.nsfw, monkeypatch, tmp_path)
+
+    photo_score = classifier.score_image(photo) * cfg.weights["nsfw_photo"]
     assert cfg.thresholds.review <= photo_score < cfg.thresholds.ban
 
 
