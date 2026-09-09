@@ -83,18 +83,32 @@ tgguard whoami
 
 ## 3. O'rnatish (lokal, skaner uchun)
 
-```bash
+PowerShell'da (Windows) nisbiy yo'l **`.\` bilan** boshlanishi shart — aks holda
+PowerShell uni buyruq deb o'ylab `CommandNotFoundException` beradi.
+
+```powershell
+cd "C:\Antigravity projects\Agentlik\tg-guard"
+```
+```powershell
 python -m venv .venv
-.venv\Scripts\activate           # Windows
-pip install -e ".[dev,nsfw]"
-copy .env.example .env            # va to'ldiring
+```
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,nsfw]" aiosqlite
+```
+```powershell
+copy .env.example .env
 ```
 
 Baza migratsiyalari:
 
-```bash
-alembic upgrade head
+```powershell
+.\.venv\Scripts\python.exe -m alembic upgrade head
 ```
+
+O'rnatilgandan keyin `tgguard` buyrug'i paydo bo'ladi:
+`.\.venv\Scripts\tgguard.exe ...`. Venv'ni aktivlashtirsangiz (`.\.venv\Scripts\Activate.ps1`)
+qisqa `tgguard ...` shakli ham ishlaydi; ExecutionPolicy taqiqlasa, to'liq yo'ldan
+foydalanavering.
 
 > `[nsfw]` ekstra NudeNet ni o'rnatadi (birinchi ishga tushirishda model
 > yuklab olinadi, ~100 MB). Modelsiz sinash uchun `TGGUARD_NSFW_BACKEND=stub`.
@@ -117,6 +131,8 @@ ni shu natijaga qarab sozlang.
 ---
 
 ## 5. Skaner (lokal CLI)
+
+> Venv aktiv bo'lmasa `tgguard` o'rniga `.\.venv\Scripts\tgguard.exe` deb yozing.
 
 ```bash
 tgguard whoami                       # sessiya qaysi akkaunt ekanini ko'rsatadi
@@ -328,7 +344,7 @@ avtomatik ban umuman yo'q (qora ro'yxatdagilar ham faqat xabar qilinadi).
 pytest -q
 ```
 
-44 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
+45 ta test: ball hisoblash (spam / haqiqiy / rasmsiz + havolali / rasmsiz toza),
 qaror ustuvorligi (oq ro'yxat > qora ro'yxat > ball), observe/enforce siyosati,
 review holat mashinasi, kesh, izoh shablonlari, hisobot va `list` filtrlari, review xabari
 formati va **soxta Bot API** bilan to'liq real-vaqt quvuri (ban / observe /
