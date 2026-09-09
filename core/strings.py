@@ -152,6 +152,13 @@ VERDICT_BADGE = {
     "ignore": "✅ toza",
 }
 
+# Printed under every photo report: makes it obvious at a glance whether the
+# running process picked up the current code and scoring.yaml.
+PHOTO_TEST_ENGINE = (
+    "\n⚙️ <i>Sozlama: combine={combine} • nsfw vazni={weight:.2f} • "
+    "yopiq_sinf={covered:.2f}</i>"
+)
+
 PHOTO_TEST_HINT = (
     "\n<i>Eslatma: bu faqat rasm bo'yicha baho. Haqiqiy tekshiruvda bio, ism va "
     "izoh matni ham qo'shiladi.</i>"

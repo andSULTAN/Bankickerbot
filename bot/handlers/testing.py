@@ -58,6 +58,11 @@ def format_photo_report(
     else:
         detail = strings.PHOTO_TEST_NO_DETECTION
 
+    engine = strings.PHOTO_TEST_ENGINE.format(
+        combine=cfg.nsfw.combine,
+        weight=weight,
+        covered=cfg.nsfw.unsafe_classes.get("FEMALE_GENITALIA_COVERED", 0.0),
+    )
     return (
         strings.PHOTO_TEST_RESULT.format(
             nsfw=nsfw,
@@ -67,6 +72,7 @@ def format_photo_report(
             review=cfg.thresholds.review,
             detections=detail,
         )
+        + engine
         + strings.PHOTO_TEST_HINT
     )
 
