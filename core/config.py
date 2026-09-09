@@ -5,11 +5,11 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -19,8 +19,13 @@ Mode = Literal["observe", "enforce"]
 class Settings(BaseSettings):
     """Secrets and deployment settings, read from environment / .env."""
 
+    # Both the current directory and the repo root, so the CLI also works when
+    # it is started from somewhere else (the repo root wins).
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore", case_sensitive=False
+        env_file=(".env", str(REPO_ROOT / ".env")),
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
     )
 
     bot_token: str = ""
@@ -30,7 +35,9 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://tgguard:tgguard@localhost:5432/tgguard"
 
-    admin_ids: list[int] = Field(default_factory=list)
+    # NoDecode: without it pydantic-settings would try to JSON-parse the raw
+    # value, so a plain "111,222" (or an empty value) would raise.
+    admin_ids: Annotated[list[int], NoDecode] = Field(default_factory=list)
     review_channel_id: int = 0
 
     channel_id: int = 0
@@ -43,6 +50,9 @@ class Settings(BaseSettings):
     @field_validator("admin_ids", mode="before")
     @classmethod
     def _split_admin_ids(cls, value: Any) -> Any:
+        """Accept "111,222", "111 222", an empty value, or a real list."""
+        if value is None:
+            return []
         if isinstance(value, str):
             return [int(part) for part in re.split(r"[,\s]+", value.strip()) if part]
         return value

@@ -87,3 +87,13 @@ def test_reasons_are_human_readable(cfg, spam_profile):
     payload = result.to_json()
     assert payload["verdict"] == "ban"
     assert payload["signals"]
+
+
+def test_admin_ids_accepts_plain_and_empty_values():
+    """`.env` holds ADMIN_IDS=111,222 - not JSON, and often empty at first."""
+    from core.config import Settings
+
+    assert Settings(admin_ids="111,222").admin_ids == [111, 222]
+    assert Settings(admin_ids="111 222").admin_ids == [111, 222]
+    assert Settings(admin_ids="").admin_ids == []
+    assert Settings(admin_ids=[7]).is_admin(7)

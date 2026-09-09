@@ -10,3 +10,7 @@ secrets/
 .ruff_cache/
 *.egg-info/
 tmp/
+
+# Lokal SQLite bazasi
+*.db
+*.db-journal
