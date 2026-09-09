@@ -104,7 +104,9 @@ async def iter_participants(
 
 async def _iter_query(client: TelegramClient, entity, query: str) -> AsyncIterator[User]:
     """One `iter_participants` sweep, tolerant to FloodWait."""
-    iterator = client.iter_participants(entity, search=query or None)
+    # `search` must be a string: Telethon wraps it in ChannelParticipantsSearch(q=...)
+    # and serializing q=None raises "bytes or str expected, not NoneType".
+    iterator = client.iter_participants(entity, search=query or "")
     while True:
         try:
             user = await flood_safe(
