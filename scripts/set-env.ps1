@@ -3,11 +3,12 @@
     Fills in the .env file from the terminal, one value at a time.
 
 .DESCRIPTION
-    Windows has no terminal editor out of the box, so this asks for every
-    setting and rewrites only the matching lines of .env (comments and the
+    Windows ships no terminal editor and .env has no file extension, so this
+    asks for every setting and rewrites only the matching lines (comments and
     values you do not touch stay exactly as they are).
 
-    Press Enter to keep the current value.
+    Press Enter to keep the current value. A value that fails validation is
+    asked again instead of aborting the whole run.
 
 .EXAMPLE
     .\scripts\set-env.ps1
@@ -72,44 +73,93 @@ function Mask([string]$Value) {
     return $Value.Substring(0, 4) + '...' + $Value.Substring($Value.Length - 4)
 }
 
-function Ask([string]$Key, [string]$Label, [string]$Supplied, [switch]$Secret) {
+function Ask {
+    param(
+        [string]$Key,
+        [string]$Label,
+        [string]$Supplied,
+        [scriptblock]$Validate,
+        [string]$Hint,
+        [switch]$Secret
+    )
     $current = Get-EnvValue $Key
-    if ($Supplied) { return $Supplied.Trim() }
+
+    if ($Supplied) {
+        $value = $Supplied.Trim()
+        if ($Validate -and -not (& $Validate $value)) {
+            throw "$Key noto'g'ri. $Hint  (kiritilgan: $value)"
+        }
+        return $value
+    }
     if ($NonInteractive) { return $current }
 
     if ($Secret) { $shown = Mask $current } else { $shown = $current }
     Write-Host ''
     Write-Host $Label -ForegroundColor Cyan
     Write-Host "  hozirgi qiymat: $shown" -ForegroundColor DarkGray
-    $answer = Read-Host '  yangi qiymat (Enter = o''zgartirmaslik)'
-    if ([string]::IsNullOrWhiteSpace($answer)) { return $current }
-    return $answer.Trim()
-}
 
-function Test-ChatId([string]$Key, [string]$Value) {
-    if ($Value -and $Value -ne '0' -and -not ($Value -like '-100*')) {
-        Write-Host "  ! $Key odatda -100 bilan boshlanadi. Kiritilgan: $Value" -ForegroundColor Yellow
+    while ($true) {
+        $answer = Read-Host '  yangi qiymat (Enter = o''zgartirmaslik)'
+        if ([string]::IsNullOrWhiteSpace($answer)) { return $current }
+        $answer = $answer.Trim()
+        if (-not $Validate -or (& $Validate $answer)) { return $answer }
+        # Wrong value: explain and ask again, so nothing entered so far is lost.
+        Write-Host "  ! $Hint" -ForegroundColor Yellow
     }
 }
 
+$isDigits   = { param($v) $v -match '^\d+$' }
+$isChatId   = { param($v) $v -match '^-?\d+$' }
+$isAdminIds = { param($v) $v -match '^\d+([,\s]+\d+)*$' }
+$isToken    = { param($v) $v -match '^\d+:[A-Za-z0-9_\-]+$' }
+$isHash     = { param($v) $v -match '^[A-Za-z0-9]{16,}$' }
+
 Write-Host 'TG-Guard .env sozlash' -ForegroundColor Green
 Write-Host "Fayl: $Path"
+Write-Host 'Enter bosilsa qiymat o''zgarmaydi. Xato qiymat qayta so''raladi.' -ForegroundColor DarkGray
 
-$values = [ordered]@{
-    BOT_TOKEN           = Ask 'BOT_TOKEN' '1) Bot tokeni  (@BotFather -> /newbot)' $BotToken -Secret
-    TG_API_ID           = Ask 'TG_API_ID' '2) api_id  (my.telegram.org -> API development tools)' $ApiId
-    TG_API_HASH         = Ask 'TG_API_HASH' '3) api_hash  (o''sha sahifada)' $ApiHash -Secret
-    ADMIN_IDS           = Ask 'ADMIN_IDS' '4) Sizning user id  (@userinfobot). Bir nechta bo''lsa: 111,222' $AdminIds
-    CHANNEL_ID          = Ask 'CHANNEL_ID' '5) Himoyalanadigan kanal id  (-100...)' $ChannelId
-    DISCUSSION_GROUP_ID = Ask 'DISCUSSION_GROUP_ID' '6) Muhokama guruhi id  (-100...)' $DiscussionGroupId
-    REVIEW_CHANNEL_ID   = Ask 'REVIEW_CHANNEL_ID' '7) Yopiq review kanal id  (-100...)' $ReviewChannelId
-}
+$values = [ordered]@{}
 
-if ($values.TG_API_ID -and $values.TG_API_ID -notmatch '^\d+$') {
-    throw "TG_API_ID faqat raqam bo'lishi kerak. Kiritilgan: $($values.TG_API_ID)"
-}
+$values.BOT_TOKEN = Ask -Key 'BOT_TOKEN' -Supplied $BotToken -Secret `
+    -Label '1) Bot tokeni  (@BotFather -> /newbot)' `
+    -Validate $isToken `
+    -Hint 'Token "123456789:AAH..." ko''rinishida bo''ladi (raqam, ikki nuqta, harflar).'
+
+$values.TG_API_ID = Ask -Key 'TG_API_ID' -Supplied $ApiId `
+    -Label '2) api_id  (my.telegram.org -> API development tools -> "App api_id")' `
+    -Validate $isDigits `
+    -Hint 'Faqat raqam, 6-8 xona (masalan 2468013). "149.154.167.50:443" - bu server manzili, api_id EMAS.'
+
+$values.TG_API_HASH = Ask -Key 'TG_API_HASH' -Supplied $ApiHash -Secret `
+    -Label '3) api_hash  (o''sha sahifada "App api_hash")' `
+    -Validate $isHash `
+    -Hint '32 ta harf-raqamdan iborat uzun satr (masalan a1b2c3d4e5f6...).'
+
+$values.ADMIN_IDS = Ask -Key 'ADMIN_IDS' -Supplied $AdminIds `
+    -Label '4) Sizning user id  (@userinfobot). Bir nechta bo''lsa: 111,222' `
+    -Validate $isAdminIds `
+    -Hint 'Faqat raqam(lar), vergul bilan ajratilgan. Manfiy emas - bu sizning shaxsiy id ingiz.'
+
+$values.CHANNEL_ID = Ask -Key 'CHANNEL_ID' -Supplied $ChannelId `
+    -Label '5) Himoyalanadigan kanal id  (-100... ; `tgguard chats` ko''rsatadi)' `
+    -Validate $isChatId `
+    -Hint 'Butun son, odatda -100 bilan boshlanadi (masalan -1001122334455).'
+
+$values.DISCUSSION_GROUP_ID = Ask -Key 'DISCUSSION_GROUP_ID' -Supplied $DiscussionGroupId `
+    -Label '6) Muhokama guruhi id  (-100...)' `
+    -Validate $isChatId `
+    -Hint 'Butun son, odatda -100 bilan boshlanadi.'
+
+$values.REVIEW_CHANNEL_ID = Ask -Key 'REVIEW_CHANNEL_ID' -Supplied $ReviewChannelId `
+    -Label '7) Yopiq review kanal id  (-100...)' `
+    -Validate $isChatId `
+    -Hint 'Butun son, odatda -100 bilan boshlanadi.'
+
 foreach ($key in 'CHANNEL_ID', 'DISCUSSION_GROUP_ID', 'REVIEW_CHANNEL_ID') {
-    Test-ChatId $key $values[$key]
+    $value = $values[$key]
+    if ($value -and $value -ne '0' -and -not ($value -like '-100*')) {
+        Write-Host "  ! $key odatda -100 bilan boshlanadi. Kiritilgan: $value" -ForegroundColor Yellow
+    }
 }
 
 foreach ($key in $values.Keys) {
@@ -133,4 +183,5 @@ foreach ($key in $values.Keys) {
 }
 Write-Host ''
 Write-Host 'Keyingi qadam:' -ForegroundColor Cyan
-Write-Host '  .\.venv\Scripts\tgguard.exe whoami'
+Write-Host '  .\.venv\Scripts\tgguard.exe chats     # kanal id larini ko''rish'
+Write-Host '  .\.venv\Scripts\tgguard.exe whoami    # ulanishni tekshirish'
